@@ -7,8 +7,6 @@
 
 ## 快速開始
 
-### 直接開啟遊戲（⚠️ 題庫只用內建預設）
-
 直接在瀏覽器開啟[友誼大富翁](https://grantyuc.github.io/friendship-monopoly/)。
 
 ---
