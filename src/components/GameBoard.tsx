@@ -1,43 +1,28 @@
-import type { GameState, CellType } from '@/data/types';
+import { useState, useEffect } from 'react';
+import type { GameState, CellType, TeamId } from '@/data/types';
 import { BOARD_CELLS } from '@/data/questions';
+import { DiceFace } from '@/components/ui/DiceFace';
 
 interface GameBoardProps {
   state: GameState;
-  // Animated position overrides during step movement
-  displayPositions?: { A: number; B: number } | null;
-  // Which cell is currently being highlighted during animation
-  animatingCell?: number | null;
+  displayPositions: { A: number; B: number } | null;
+  animatingCell: number | null;
+  diceDisplay: number | null;
+  diceRolling: boolean;
+  diceSettled: boolean;
 }
 
-// Colors for board cells
+// Bright, cute, child-friendly palette
 const CELL_BG: Record<CellType, string> = {
-  start:   '#FFFFFF',
-  yellow:  '#FCD34D',
-  red:     '#F87171',
-  green:   '#4ADE80',
-  chance:  '#FFFFFF',   // white background, black text (per user request)
-  destiny: '#111827',
+  start:   '#FFF9DB', // warm cream
+  yellow:  '#FFD43B', // bright sunny yellow
+  red:     '#FF6B6B', // soft coral red
+  green:   '#51CF66', // fresh mint green
+  chance:  '#FFFFFF', // white
+  destiny: '#212529', // black
 };
 
-const CELL_TEXT: Record<CellType, string> = {
-  start:   '#1F2937',
-  yellow:  '#78350F',
-  red:     '#7F1D1D',
-  green:   '#14532D',
-  chance:  '#111827',   // black text on white background
-  destiny: '#FFFFFF',
-};
-
-const CELL_BORDER: Record<CellType, string> = {
-  start:   '#9CA3AF',
-  yellow:  '#D97706',
-  red:     '#DC2626',
-  green:   '#16A34A',
-  chance:  '#6B7280',
-  destiny: '#374151',
-};
-
-const CELL_EMOJI: Record<CellType, string> = {
+const CELL_ICON: Record<CellType, string> = {
   start:   '🏁',
   yellow:  '🤝',
   red:     '🎭',
@@ -46,304 +31,307 @@ const CELL_EMOJI: Record<CellType, string> = {
   destiny: '🃏',
 };
 
-// Layout: 11 cells along top/bottom (0-10 top, 20-30 bottom reversed)
-//         9 cells along sides (11-19 right, 31-39 left)
-// Total = 11 + 9 + 11 + 9 = 40 cells
+const TEAM_COLORS: Record<TeamId, string> = {
+  A: '#339AF0', // friendly blue
+  B: '#FF922B', // warm orange
+};
 
-function getCellStyle(index: number) {
-  const COLS = 11;
-  const ROWS = 11; // 11 cells in each direction
-  const W = 100 / COLS; // % width of each cell
-  const H = 100 / ROWS; // % height of each cell
+const TEAM_EMOJI: Record<TeamId, string> = {
+  A: '🐳',
+  B: '🦊',
+};
 
-  let left = 0, top = 0, width = W, height = H;
+const GRID_COLS = 12;
+const GRID_ROWS = 10;
 
-  if (index <= 10) {
-    // Top row: left to right
-    left = index * W;
-    top = 0;
-  } else if (index <= 19) {
-    // Right column: top to bottom (skip top-right corner = already cell 10)
-    left = (COLS - 1) * W;
-    top = (index - 9) * H;  // 11 -> row 2, 19 -> row 10
-  } else if (index <= 30) {
-    // Bottom row: right to left (30 = left corner, 20 = right side)
-    left = (30 - index) * W;
-    top = (ROWS - 1) * H;
-  } else {
-    // Left column: bottom to top (31 = near bottom, 39 = near top)
-    left = 0;
-    top = (ROWS - 1 - (index - 30)) * H; // 31 -> row 9, 39 -> row 1
-  }
-
-  return { left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` };
+function cellToGrid(id: number): [number, number] {
+  if (id < GRID_COLS) return [id, 0];
+  const rightCount = GRID_ROWS - 2;
+  if (id < GRID_COLS + rightCount) return [GRID_COLS - 1, 1 + (id - GRID_COLS)];
+  if (id < GRID_COLS + rightCount + GRID_COLS) return [GRID_COLS - 1 - (id - GRID_COLS - rightCount), GRID_ROWS - 1];
+  const leftStart = GRID_COLS + rightCount + GRID_COLS;
+  return [0, GRID_ROWS - 2 - (id - leftStart)];
 }
 
-export function GameBoard({ state, displayPositions, animatingCell }: GameBoardProps) {
-  const teamAPos = displayPositions?.A ?? state.teams[0].position;
-  const teamBPos = displayPositions?.B ?? state.teams[1].position;
+
+interface CellCompProps {
+  type: CellType;
+  ownership: { owner: TeamId | null; houses: number };
+  teamsHere: TeamId[];
+  isAnimating: boolean;
+  cellW: number;
+  cellH: number;
+}
+
+function BoardCellComp({ type, ownership, teamsHere, isAnimating, cellW, cellH }: CellCompProps) {
+  const bg = CELL_BG[type];
+  const icon = CELL_ICON[type];
+  const hasOwner = ownership.owner !== null;
+  const ownerColor = hasOwner ? TEAM_COLORS[ownership.owner!] : null;
+  const s = Math.min(cellW, cellH);
 
   return (
-    <div className="w-full h-full relative bg-gray-100">
-      <div className="absolute inset-1 bg-white border-4 border-gray-800 shadow-2xl" style={{ borderRadius: '4px' }}>
-
-        {/* Render all 40 cells */}
-        {BOARD_CELLS.map((cell, idx) => {
-          const style = getCellStyle(idx);
-          const bg = CELL_BG[cell.type];
-          const textColor = CELL_TEXT[cell.type];
-          const borderColor = CELL_BORDER[cell.type];
-          const emoji = CELL_EMOJI[cell.type];
-          const ownership = state.cellOwnership[idx];
-
-          const teamAHere = teamAPos === idx;
-          const teamBHere = teamBPos === idx;
-
-          // Highlight during animation
-          const isAnimating = animatingCell === idx;
-          // Highlight if current team is here and not in setup
-          const isActive = state.phase !== 'setup' && (
-            (state.currentTeam === 'A' && teamAPos === idx) ||
-            (state.currentTeam === 'B' && teamBPos === idx)
-          );
-
-          return (
-            <div
-              key={idx}
-              className="absolute flex flex-col items-center justify-center overflow-hidden"
-              style={{
-                ...style,
-                backgroundColor: bg,
-                borderRight: `1.5px solid ${borderColor}`,
-                borderBottom: `1.5px solid ${borderColor}`,
-                boxShadow: isAnimating
-                  ? `inset 0 0 0 3px #FBBF24, 0 0 16px 6px rgba(251,191,36,0.6)`
-                  : isActive && !displayPositions
-                  ? `inset 0 0 0 2px #3B82F6`
-                  : 'none',
-                transition: 'box-shadow 0.15s',
-                zIndex: isAnimating ? 5 : 1,
-              }}
-            >
-              {/* Cell emoji (small, top) */}
-              <span style={{ fontSize: 'clamp(10px, 1.2vw, 18px)', lineHeight: 1, marginBottom: '1px' }}>
-                {cell.type === 'start' ? '🏁' : emoji}
-              </span>
-
-              {/* Cell label */}
-              <span
-                className="font-bold text-center leading-tight"
-                style={{
-                  color: textColor,
-                  fontSize: 'clamp(10px, 1.3vw, 18px)',
-                  padding: '0 2px',
-                  textShadow: cell.type === 'destiny' ? 'none' : 'none',
-                }}
-              >
-                {cell.type === 'start' ? '起點' : cell.label}
-              </span>
-
-              {/* Ownership dot */}
-              {ownership.owner && (
-                <div
-                  className="absolute rounded-full border-2 border-white shadow-md"
-                  style={{
-                    width: 'clamp(8px, 1.1vw, 16px)',
-                    height: 'clamp(8px, 1.1vw, 16px)',
-                    backgroundColor: ownership.owner === 'A' ? '#2563EB' : '#EA580C',
-                    top: '3px',
-                    right: '3px',
-                  }}
-                />
-              )}
-
-              {/* Houses — rendered as house icons, stacked */}
-              {ownership.houses > 0 && (
-                <div
-                  className="absolute flex"
-                  style={{ bottom: '2px', left: '2px', gap: '1px' }}
-                >
-                  {Array(ownership.houses).fill(0).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-center text-white font-bold rounded shadow"
-                      style={{
-                        width: 'clamp(12px, 1.4vw, 22px)',
-                        height: 'clamp(12px, 1.4vw, 22px)',
-                        backgroundColor: ownership.owner === 'A' ? '#1D4ED8' : '#C2410C',
-                        fontSize: 'clamp(7px, 0.9vw, 14px)',
-                      }}
-                    >
-                      🏠
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Team tokens */}
-              {teamAHere && (
-                <TeamToken
-                  label={state.teams[0].name.charAt(0)}
-                  color="#2563EB"
-                  offsetLeft={teamBHere}
-                  isMoving={displayPositions !== null && displayPositions !== undefined && state.currentTeam === 'A'}
-                />
-              )}
-              {teamBHere && (
-                <TeamToken
-                  label={state.teams[1].name.charAt(0)}
-                  color="#EA580C"
-                  offsetRight={teamAHere}
-                  isMoving={displayPositions !== null && displayPositions !== undefined && state.currentTeam === 'B'}
-                />
-              )}
-            </div>
-          );
-        })}
-
-        {/* Center content area — the inner 9×9 area */}
+    <div
+      style={{
+        width: cellW,
+        height: cellH,
+        background: bg,
+        border: '2px solid #DEE2E6',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        overflow: 'visible',
+        boxShadow: isAnimating
+          ? '0 0 24px 8px rgba(255,215,0,0.85), inset 0 0 12px rgba(255,235,100,0.4)'
+          : 'none',
+        transition: 'box-shadow 0.15s ease',
+        zIndex: isAnimating ? 20 : 1,
+      }}
+    >
+      {/* Owner strip at bottom */}
+      {hasOwner && (
         <div
-          className="absolute flex flex-col items-center justify-center pointer-events-none"
           style={{
-            left: `${(1/11)*100}%`,
-            top: `${(1/11)*100}%`,
-            width: `${(9/11)*100}%`,
-            height: `${(9/11)*100}%`,
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: Math.max(4, s * 0.1),
+            background: ownerColor!,
+            opacity: 0.85,
+          }}
+        />
+      )}
+
+      {/* Houses */}
+      {ownership.houses > 0 && (
+        <div style={{ position: 'absolute', top: 2, right: 2, display: 'flex', gap: 1 }}>
+          {Array.from({ length: ownership.houses }).map((_, i) => (
+            <span key={i} style={{ fontSize: s * 0.28, lineHeight: 1 }}>🏠</span>
+          ))}
+        </div>
+      )}
+
+      {/* Icon only — no text label */}
+      <div style={{ fontSize: s * 0.45, lineHeight: 1 }}>
+        {icon}
+      </div>
+
+      {/* Player tokens — 3x size, overlapping is OK */}
+      {teamsHere.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: s * 0.05,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: 0,
+            zIndex: 30,
           }}
         >
-          {/* Title */}
-          <h1
-            className="font-black text-blue-600 leading-none text-center"
+          {teamsHere.map((teamId, idx) => {
+            const tkn = s * 0.85; // 3x bigger
+            return (
+              <div
+                key={teamId}
+                style={{
+                  width: tkn,
+                  height: tkn,
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle at 40% 35%, ${TEAM_COLORS[teamId]}CC, ${TEAM_COLORS[teamId]})`,
+                  border: '3px solid white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: tkn * 0.55,
+                  lineHeight: 1,
+                  boxShadow: `0 3px 12px rgba(0,0,0,0.35), 0 0 16px ${TEAM_COLORS[teamId]}66`,
+                  marginLeft: idx > 0 ? -tkn * 0.3 : 0,
+                  zIndex: 30 + idx,
+                  flexShrink: 0,
+                }}
+              >
+                {TEAM_EMOJI[teamId]}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function GameBoard({ state, displayPositions, animatingCell, diceDisplay, diceRolling, diceSettled }: GameBoardProps) {
+  const posA = displayPositions?.A ?? state.teams[0].position;
+  const posB = displayPositions?.B ?? state.teams[1].position;
+
+  // Board sizing: leave 13% for control bar, add 2px padding to avoid edge clipping
+  const pad = 4;
+  const boardW = window.innerWidth - pad * 2;
+  const boardH = window.innerHeight * 0.83 - pad * 2;
+
+  const cellW = Math.floor(boardW / GRID_COLS);
+  const cellH = Math.floor(boardH / GRID_ROWS);
+  const gridW = cellW * GRID_COLS;
+  const gridH = cellH * GRID_ROWS;
+
+  const cells = BOARD_CELLS.map(cell => {
+    const [col, row] = cellToGrid(cell.id);
+    const teamsHere: TeamId[] = [];
+    if (posA === cell.id) teamsHere.push('A');
+    if (posB === cell.id) teamsHere.push('B');
+    return { ...cell, col, row, teamsHere, isAnimating: animatingCell === cell.id };
+  });
+
+  // Dice animation angle
+  const [diceAngle, setDiceAngle] = useState(0);
+  useEffect(() => {
+    if (!diceRolling) { setDiceAngle(0); return; }
+    let frame: number;
+    let a = 0;
+    const spin = () => {
+      a += 25;
+      setDiceAngle(a);
+      frame = requestAnimationFrame(spin);
+    };
+    frame = requestAnimationFrame(spin);
+    return () => cancelAnimationFrame(frame);
+  }, [diceRolling]);
+
+  const diceSize = Math.max(60, Math.min(cellW, cellH) * 1.2);
+  const showDice = diceDisplay !== null;
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        background: '#FFF9DB',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        padding: pad,
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: gridW,
+          height: gridH,
+          border: '4px solid #845EF7',
+          borderRadius: 8,
+          background: '#FFFFFF',
+          overflow: 'visible',
+        }}
+      >
+        {cells.map(cell => (
+          <div
+            key={cell.id}
             style={{
-              fontSize: 'clamp(28px, 4vw, 72px)',
-              letterSpacing: '-0.02em',
-              textShadow: '2px 2px 0 rgba(59,130,246,0.15)',
+              position: 'absolute',
+              left: cell.col * cellW,
+              top: cell.row * cellH,
+              zIndex: cell.isAnimating ? 20 : cell.teamsHere.length > 0 ? 10 : 1,
             }}
           >
-            友誼大富翁
-          </h1>
-          <p
-            className="text-orange-400 font-bold mt-1"
-            style={{ fontSize: 'clamp(12px, 1.4vw, 24px)' }}
+            <BoardCellComp
+              type={cell.type}
+              ownership={state.cellOwnership[cell.id]}
+              teamsHere={cell.teamsHere}
+              isAnimating={cell.isAnimating}
+              cellW={cellW}
+              cellH={cellH}
+            />
+          </div>
+        ))}
+
+        {/* Center area */}
+        <div
+          style={{
+            position: 'absolute',
+            left: cellW,
+            top: cellH,
+            width: (GRID_COLS - 2) * cellW,
+            height: (GRID_ROWS - 2) * cellH,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: 6,
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Dice in center */}
+          {showDice && (
+            <div
+              style={{
+                transform: diceRolling
+                  ? `rotate(${diceAngle}deg) scale(${0.8 + Math.sin(diceAngle * 0.05) * 0.3})`
+                  : diceSettled
+                  ? 'rotate(0deg) scale(1.15)'
+                  : 'rotate(0deg) scale(1)',
+                transition: diceRolling ? 'none' : 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+                marginBottom: 12,
+                filter: diceRolling ? 'blur(1.5px)' : 'none',
+              }}
+            >
+              <DiceFace value={diceDisplay!} size={diceSize} />
+            </div>
+          )}
+
+          {!showDice && (
+            <>
+              <div style={{ fontSize: Math.max(12, cellH * 0.3), letterSpacing: '0.3em', opacity: 0.4 }}>
+                ✦ ✧ ★ ✧ ✦
+              </div>
+              <div
+                style={{
+                  fontSize: Math.max(28, cellH * 1.2),
+                  fontWeight: 900,
+                  color: '#339AF0',
+                  fontFamily: '"Noto Sans TC", sans-serif',
+                  letterSpacing: '0.08em',
+                  textAlign: 'center',
+                }}
+              >
+                友誼大富翁
+              </div>
+              <div style={{ fontSize: Math.max(12, cellH * 0.3), color: '#868E96', fontWeight: 600 }}>
+                合作 · 分享 · 理解
+              </div>
+              <div style={{ fontSize: Math.max(16, cellH * 0.4), letterSpacing: '0.4em', marginTop: 2, opacity: 0.5 }}>
+                🎲🎵🌈🎉
+              </div>
+            </>
+          )}
+
+          {/* Current team indicator */}
+          <div
+            style={{
+              marginTop: showDice ? 4 : 10,
+              background: state.currentTeam === 'A' ? '#E7F5FF' : '#FFF4E6',
+              border: `3px solid ${state.currentTeam === 'A' ? '#339AF0' : '#FF922B'}`,
+              borderRadius: 16,
+              padding: `${Math.max(5, cellH * 0.08)}px ${Math.max(14, cellW * 0.2)}px`,
+            }}
           >
-            情感存摺
-          </p>
-
-          {/* Decorative stars */}
-          <div className="flex gap-2 mt-2" style={{ fontSize: 'clamp(16px, 2vw, 36px)' }}>
-            <span>✨</span><span>💝</span><span>🤝</span><span>💝</span><span>✨</span>
-          </div>
-
-          {/* Card piles */}
-          <div className="flex gap-6 mt-4">
-            <CardPile label="機會" color="white" border="#6B7280" textColor="#111827" remaining={state.chanceDeck.length} />
-            <CardPile label="命運" color="#111827" border="#374151" textColor="white" remaining={state.destinyDeck.length} />
-          </div>
-
-          {/* Scores display in center for easy viewing */}
-          <div className="flex gap-8 mt-4">
-            <ScoreDisplay name={state.teams[0].name} score={state.teams[0].score} color="#2563EB" active={state.currentTeam === 'A'} />
-            <ScoreDisplay name={state.teams[1].name} score={state.teams[1].score} color="#EA580C" active={state.currentTeam === 'B'} />
+            <span
+              style={{
+                color: state.currentTeam === 'A' ? '#1971C2' : '#E8590C',
+                fontWeight: 800,
+                fontSize: Math.max(13, cellH * 0.3),
+                fontFamily: '"Noto Sans TC", sans-serif',
+              }}
+            >
+              {TEAM_EMOJI[state.currentTeam]} {state.teams[state.currentTeam === 'A' ? 0 : 1].name} 的回合
+            </span>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-interface TeamTokenProps {
-  label: string;
-  color: string;
-  offsetLeft?: boolean;
-  offsetRight?: boolean;
-  isMoving?: boolean;
-}
-
-function TeamToken({ label, color, offsetLeft, offsetRight, isMoving }: TeamTokenProps) {
-  const baseStyle: React.CSSProperties = {
-    position: 'absolute',
-    width: 'clamp(22px, 2.8vw, 44px)',
-    height: 'clamp(22px, 2.8vw, 44px)',
-    borderRadius: '50%',
-    backgroundColor: color,
-    border: '3px solid white',
-    boxShadow: isMoving
-      ? `0 0 0 3px ${color}, 0 4px 12px rgba(0,0,0,0.4)`
-      : '0 3px 8px rgba(0,0,0,0.35)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'white',
-    fontWeight: '900',
-    fontSize: 'clamp(11px, 1.4vw, 22px)',
-    zIndex: 10,
-    transition: 'box-shadow 0.2s',
-    // Slight animation when moving
-    animation: isMoving ? 'tokenPulse 0.4s ease-in-out infinite alternate' : 'none',
-  };
-
-  if (offsetLeft) {
-    return <div style={{ ...baseStyle, bottom: '18%', left: '8%' }}>{label}</div>;
-  }
-  if (offsetRight) {
-    return <div style={{ ...baseStyle, bottom: '18%', right: '8%' }}>{label}</div>;
-  }
-  return <div style={{ ...baseStyle, bottom: '18%', left: '50%', transform: 'translateX(-50%)' }}>{label}</div>;
-}
-
-interface CardPileProps {
-  label: string;
-  color: string;
-  border: string;
-  textColor: string;
-  remaining: number;
-}
-
-function CardPile({ label, color, border, textColor, remaining }: CardPileProps) {
-  return (
-    <div className="flex flex-col items-center">
-      <div
-        className="flex items-center justify-center font-bold rounded-lg shadow-lg"
-        style={{
-          width: 'clamp(44px, 5.5vw, 80px)',
-          height: 'clamp(58px, 7vw, 108px)',
-          backgroundColor: color,
-          border: `2px solid ${border}`,
-          color: textColor,
-          fontSize: 'clamp(12px, 1.5vw, 20px)',
-          writingMode: 'vertical-rl',
-          textOrientation: 'upright',
-          letterSpacing: '0.05em',
-        }}
-      >
-        {label}
-      </div>
-      <span style={{ fontSize: 'clamp(9px, 1vw, 14px)', color: '#6B7280', marginTop: '4px' }}>
-        剩 {remaining} 張
-      </span>
-    </div>
-  );
-}
-
-interface ScoreDisplayProps {
-  name: string;
-  score: number;
-  color: string;
-  active: boolean;
-}
-
-function ScoreDisplay({ name, score, color, active }: ScoreDisplayProps) {
-  return (
-    <div
-      className="flex flex-col items-center px-4 py-2 rounded-xl transition-all"
-      style={{
-        backgroundColor: active ? `${color}22` : 'transparent',
-        border: active ? `2px solid ${color}` : '2px solid transparent',
-        minWidth: 'clamp(70px, 8vw, 120px)',
-      }}
-    >
-      <span style={{ color, fontWeight: '700', fontSize: 'clamp(13px, 1.5vw, 22px)' }}>{name}</span>
-      <span style={{ color, fontWeight: '900', fontSize: 'clamp(20px, 2.5vw, 40px)', lineHeight: 1.1 }}>{score}</span>
     </div>
   );
 }

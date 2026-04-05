@@ -1,12 +1,25 @@
 export type CellType = 'start' | 'yellow' | 'red' | 'green' | 'chance' | 'destiny';
+export type TeamId = 'A' | 'B';
+
+export type GamePhase =
+  | 'setup'
+  | 'card_draw'
+  | 'card_editor'
+  | 'rolling'
+  | 'moving'
+  | 'effect_moving'       // card-effect-triggered piece movement animation
+  | 'card_display'
+  | 'choose_forward'
+  | 'roll_for_backward'
+  | 'select_building_upgrade'
+  | 'select_building_destroy'
+  | 'game_over';
 
 export interface BoardCell {
   id: number;
   type: CellType;
   label: string;
 }
-
-export type TeamId = 'A' | 'B';
 
 export interface Team {
   id: TeamId;
@@ -19,7 +32,7 @@ export interface Team {
 
 export interface CellOwnership {
   owner: TeamId | null;
-  houses: number; // 0, 1, or 2
+  houses: number;
 }
 
 export interface YellowQuestion {
@@ -45,26 +58,19 @@ export interface GreenQuestion {
   comfortPractice: string;
 }
 
-export type CardEffectType =
-  | 'move_forward'
-  | 'move_backward'
-  | 'move_to_start'
-  | 'skip_turn'
-  | 'extra_turn'
-  | 'upgrade_building'
-  | 'destroy_building'
-  | 'score_change'
-  | 'roll_to_move_back'
-  | 'choose_forward'
-  | 'stay'
-  | 'move_to_start_with_score'
-  | 'composite';
-
-export interface CardEffect {
-  type: CardEffectType;
-  value?: number;
-  effects?: CardEffect[]; // for composite
-}
+export type CardEffect =
+  | { type: 'score_change'; value: number }
+  | { type: 'move_forward'; value: number }
+  | { type: 'move_backward'; value: number }
+  | { type: 'move_to_start' }
+  | { type: 'skip_turn' }
+  | { type: 'extra_turn' }
+  | { type: 'choose_forward' }
+  | { type: 'roll_to_move_back' }
+  | { type: 'upgrade_building' }
+  | { type: 'destroy_building' }
+  | { type: 'stay' }
+  | { type: 'composite'; effects: CardEffect[] };
 
 export interface SpecialCard {
   id: number;
@@ -73,19 +79,6 @@ export interface SpecialCard {
   quality: 'good' | 'bad' | 'neutral';
   effect: CardEffect;
 }
-
-export type GamePhase =
-  | 'setup'
-  | 'rolling'
-  | 'moving'
-  | 'landed'
-  | 'card_display'
-  | 'effect_execution'
-  | 'choose_forward'
-  | 'roll_for_backward'
-  | 'select_building_upgrade'
-  | 'select_building_destroy'
-  | 'game_over';
 
 export interface GameState {
   phase: GamePhase;
@@ -102,6 +95,9 @@ export interface GameState {
   destinyDeck: number[];
   message: string;
   passedStart: boolean;
-  isOwnTerritory: boolean; // for re-challenge
+  isOwnTerritory: boolean;
   pendingEffects: CardEffect[];
+  effectMoveData: { steps: number; direction: 'forward' | 'backward' | 'to_start' } | null;
+  // When a team's turn is skipped, store who should play after the skip-turn cell resolves
+  skipTurnReturn: TeamId | null;
 }

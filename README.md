@@ -1,288 +1,306 @@
-# 友誼大富翁 — 專案說明文件
+# 友誼大富翁 Friendship Monopoly
 
-> 單機網頁互動遊戲，設計用於電子白板投影播放，由老師操作，兩組學生輪流進行回合。
-> 教案對象：國小 4–6 年級，主題為情感存摺與同儕關係。
-
----
-
-## 快速開始
-
+單機網頁互動遊戲，專為國小4–6年級設計的情感教育教案。
 直接在瀏覽器開啟[友誼大富翁](https://grantyuc.github.io/friendship-monopoly/)。
 
 ---
 
-## 資料夾結構
+## 遊戲目標
+
+兩隊透過擲骰子在棋盤上行走，完成任務佔領格子、賺取積分，最後積分高者勝。
+
+---
+
+## 規則說明
+
+### 棋盤結構（40格）
+
+| 格子類型 | 數量 | 說明 |
+|---------|------|------|
+| 🟡 通力合作（黃） | 11格 | 合作挑戰：金字塔、開合跳、默契遊戲等 |
+| 🔴 情境表演（紅） | 10格 | 挑戰情境：演出生活中不喜歡遇到的事 |
+| 🟢 心情分享（綠） | 11格 | 心靈補給：分享各種情緒，練習安慰理解 |
+| 🧧 機會 | 4格 | 抽機會卡，觸發隨機效果 |
+| 🃏 命運 | 4格 | 抽命運卡，觸發隨機效果 |
+| 🏁 起點 | 1格 | 每次經過或踩到 +100分 |
+
+### 積分規則
+
+- 每隊初始分數：**1500分**
+- 完成任務格子 / 經過或踩到起點：**+100分**
+- 踩到對手已佔領的格子：**-100分**（減少的分數同步加入對手）
+- 踩到對手有房子的格子：每棟房子額外 **-100分**（1棟 → -200，2棟 → -300）
+- 重複踩到己方已完成的格子：可再次挑戰，成功蓋房子（上限2棟）
+
+### 機會/命運卡效果清單
+
+| 效果類型 | 說明 |
+|---------|------|
+| `score_change` | 直接加減分 |
+| `move_forward N` | 前進 N 格（觸發落地格效果） |
+| `move_backward N` | 後退 N 格（觸發落地格效果） |
+| `move_to_start` | 回到起點 |
+| `extra_turn` | 同隊再擲一次骰子 |
+| `skip_turn` | 下回合暫停（暫停時仍會觸發當前格效果） |
+| `choose_forward` | 玩家自選前進 1–6 步 |
+| `roll_to_move_back` | 擲骰決定後退步數 |
+| `upgrade_building` | 選擇己方格子蓋房子 |
+| `destroy_building` | 選擇對手格子拆房子 |
+| `stay` | 原地停留，不做任何事 |
+| `composite` | 組合多個效果依序執行 |
+
+### 暫停回合機制
+
+被暫停的那一回合不會完全跳過：暫停隊仍會觸發他們當前所站格子的完整效果（抽題目卡、付對手罰金等），之後才輪回到另一隊。
+
+---
+
+## 三種模式
+
+### 1. 正常遊戲（首頁→開始遊戲）
+
+雙隊依序擲骰、移動、完成任務的完整遊戲流程。
+
+### 2. 抽牌模式（首頁→抽牌模式）
+
+不需要棋盤，直接從各類別卡堆抽取題目，適合快速暖場使用。
+
+### 3. 卡片編輯模式（設定頁→編輯卡片）
+
+瀏覽、修改所有題目卡與機會/命運卡的內容（僅在當前 session 生效）。若需永久修改，請編輯 `cards.json`。
+
+---
+
+## 替換題目（cards.json）
+
+`cards.json` 與 `index.html` 放在同一資料夾時，開啟遊戲會自動載入外部卡片（需透過 HTTP 伺服器開啟；直接雙擊 `index.html` 使用 `file://` 時因瀏覽器限制會 fallback 回內建預設）。
+
+### JSON 格式
+
+```json
+{
+  "yellow": [
+    {
+      "id": 1,
+      "title": "卡片標題",
+      "players": "2人",
+      "content": "任務內容說明",
+      "meaning": "存摺意義（這個任務在訓練什麼）"
+    }
+  ],
+  "red": [
+    {
+      "id": 1,
+      "title": "卡片標題",
+      "players": "2-3人",
+      "situation": "情境描述",
+      "task": "要執行的任務"
+    }
+  ],
+  "green": [
+    {
+      "id": 1,
+      "title": "卡片標題",
+      "shareContent": "分享內容提示",
+      "comfortPractice": "安慰練習說明"
+    }
+  ],
+  "chance": [
+    {
+      "id": 1,
+      "title": "卡片標題",
+      "description": "卡片描述",
+      "quality": "good",
+      "effect": { "type": "score_change", "value": 100 }
+    }
+  ],
+  "destiny": []
+}
+```
+
+`quality` 可填 `"good"` / `"bad"` / `"neutral"`，影響卡片顯示風格。
+
+---
+
+## 專案結構
 
 ```
 友誼大富翁/
-├── index.html              ← 遊戲主程式（已打包的單一 HTML，約 360KB）
-├── cards.json              ← 外部題庫（可獨立編輯，不需重新編譯）
-├── cards-original.json     ← 原版題庫備份（15+15+15 題）
-├── build.sh                ← 重新打包腳本
-├── package.json            ← Node.js 相依套件
-├── pnpm-lock.yaml          ← 版本鎖定檔
-├── vite.config.ts          ← Vite 建置設定
-├── tailwind.config.js      ← Tailwind CSS 設定
-├── postcss.config.js       ← PostCSS 設定
-├── tsconfig.json           ← TypeScript 根設定
-├── tsconfig.app.json       ← TypeScript 應用程式設定
-├── tsconfig.node.json      ← TypeScript Node 設定
-├── .parcelrc               ← Parcel 打包設定（path alias 支援）
-└── src/
-    ├── App.tsx             ← 主遊戲邏輯（useReducer 狀態機）
-    ├── main.tsx            ← React 根入口
-    ├── index.css           ← 全域樣式、動畫定義
-    ├── data/
-    │   ├── types.ts        ← 所有 TypeScript 型別定義
-    │   └── questions.ts    ← 內建預設題庫（fallback 用）
-    ├── hooks/
-    │   ├── useSound.ts     ← Web Audio API 音效系統
-    │   └── use-toast.ts    ← Toast 通知 hook
-    ├── lib/
-    │   └── utils.ts        ← shadcn/ui 工具函式（cn）
-    └── components/
-        ├── GameBoard.tsx   ← 40 格地圖、棋子、建築渲染
-        ├── GameSetup.tsx   ← 開始畫面（輸入隊名）
-        ├── GameOver.tsx    ← 結算畫面
-        ├── CardModal.tsx   ← 題目卡片彈出視窗
-        ├── ControlBar.tsx  ← 底部控制列（骰子、分數、回合）
-        ├── EffectModal.tsx ← 特殊效果互動視窗
-        └── ui/             ← shadcn/ui 元件（40+ 個）
+├── index.html              ← 單一輸出檔（366KB，可直接開啟）
+├── cards.json              ← 外部可替換卡片資料
+├── cards-original.json     ← 原始卡片備份
+├── build.sh                ← 建置腳本
+├── README.md               ← 本文件
+├── PROMPTS.md              ← 開發需求歷史記錄
+├── src/
+│   ├── App.tsx             ← 主元件：狀態機 + 所有 reducer 邏輯
+│   ├── data/
+│   │   ├── types.ts        ← 所有 TypeScript 型別定義
+│   │   └── questions.ts    ← 預設卡片資料 + loadExternalCards()
+│   ├── hooks/
+│   │   └── useSound.ts     ← Web Audio API 音效（純程式碼合成）
+│   └── components/
+│       ├── GameSetup.tsx   ← 首頁：輸入隊名、選擇模式
+│       ├── GameBoard.tsx   ← 棋盤渲染 + 骰子動畫
+│       ├── ControlBar.tsx  ← 底部控制列：分數、擲骰、下一回合
+│       ├── CardModal.tsx   ← 題目卡 / 機會命運卡彈窗
+│       ├── EffectModal.tsx ← 效果互動彈窗（選步數、擲後退骰、選建築）
+│       ├── CardDrawMode.tsx← 抽牌模式
+│       ├── CardEditor.tsx  ← 卡片編輯器
+│       ├── GameOver.tsx    ← 遊戲結束畫面
+│       └── ui/
+│           ├── DiceFace.tsx← 共用 3D 骰子元件（GameBoard + EffectModal 共用）
+│           └── button.tsx  ← shadcn/ui 元件（及其他 ui/ 元件）
+├── package.json
+├── vite.config.ts          ← IIFE 格式輸出（解決 file:// 限制）
+└── tsconfig.*.json
 ```
 
 ---
 
-## 題庫系統（cards.json）
+## 狀態機（GamePhase）
 
-### 載入機制
-
-`index.html` 啟動時執行：
-
-```js
-async function loadCards() {
-  const res = await fetch('./cards.json');
-  if (!res.ok) return; // 失敗則靜默使用內建題庫
-  const data = await res.json();
-  if (data.yellow?.length)  yellowDeck  = data.yellow;
-  if (data.red?.length)     redDeck     = data.red;
-  if (data.green?.length)   greenDeck   = data.green;
-  if (data.chance?.length)  chanceDeck  = data.chance;
-  if (data.destiny?.length) destinyDeck = data.destiny;
-}
 ```
-
-成功時 console 印出：`[友誼大富翁] 已從 cards.json 載入卡片資料`
-失敗時 console 印出：`[友誼大富翁] 未找到 cards.json，使用內建預設卡片`
-
-### cards.json 格式
-
-```json
-{
-  "yellow": [ ... ],   // 通力合作（目前 26 題）
-  "red":    [ ... ],   // 挑戰情境（目前 25 題）
-  "green":  [ ... ],   // 心靈補給（目前 26 題）
-  "chance": [ ... ],   // 機會卡（固定 7 張）
-  "destiny":[ ... ]    // 命運卡（固定 7 張）
-}
+setup
+  └─ START_GAME ──► rolling
+                      │
+              ROLL_DICE│
+                      ▼
+                    moving  ──(動畫完)──► MOVE_COMPLETE
+                                              │
+                          ┌───────────────────┼──────────────────────┐
+                          ▼                   ▼                      ▼
+                    card_display          rolling             effect_moving
+                    (抽到題目/          (踩起點/對手           (卡片效果移動)
+                     機會命運卡)          領地即結算)                 │
+                          │                               EFFECT_MOVE_COMPLETE
+              ┌───────────┤                                          │
+              ▼           ▼                                          ▼
+        COMPLETE_TASK  CONFIRM_SPECIAL_CARD                   (落地判斷)
+              │           │
+              └─────┬─────┘
+                    ▼
+                  rolling
+                    │
+              (互動效果)
+              ├─ choose_forward ──► CHOOSE_FORWARD_STEPS ──► effect_moving
+              ├─ roll_for_backward ──► ROLL_BACKWARD_COMPLETE ──► effect_moving
+              ├─ select_building_upgrade / select_building_destroy
+              └─ NEXT_TURN ──► rolling (下一隊)
+                                │ (或暫停隊觸發格子後 skipTurnReturn 自動換回)
 ```
-
-#### 黃色卡（yellow）欄位
-
-```json
-{
-  "id": 1,
-  "title": "心靈電波傳送",
-  "players": "2人",
-  "content": "活動內容說明...",
-  "meaning": "存摺意義說明..."
-}
-```
-
-#### 紅色卡（red）欄位
-
-```json
-{
-  "id": 1,
-  "title": "拒絕的藝術",
-  "players": "2-3人",
-  "situation": "情境描述...",
-  "task": "演出任務..."
-}
-```
-
-#### 綠色卡（green）欄位
-
-```json
-{
-  "id": 1,
-  "title": "考砸了的下午",
-  "shareContent": "分享內容引導...",
-  "comfortPractice": "安慰練習說明..."
-}
-```
-
-#### 機會/命運卡（chance / destiny）欄位
-
-```json
-{
-  "id": 1,
-  "title": "友誼升級券",
-  "description": "效果敘述...",
-  "quality": "good",
-  "effect": { "type": "composite", "effects": [...] }
-}
-```
-
-`quality` 值：`"good"` / `"bad"` / `"neutral"`（影響卡片顯示顏色）
-
-#### 支援的 effect.type
-
-| type | 說明 |
-|------|------|
-| `score_change` | 加減分，搭配 `value`（正=加分，負=扣分） |
-| `move_forward` | 前進 N 步，搭配 `value` |
-| `move_backward` | 後退 N 步，搭配 `value` |
-| `move_to_start` | 直接回到起點 |
-| `skip_turn` | 下一回合暫停 |
-| `extra_turn` | 本回合再擲一次骰子 |
-| `choose_forward` | 玩家自選前進 1–6 步 |
-| `roll_to_move_back` | 擲骰決定後退步數 |
-| `upgrade_building` | 選擇己方一塊地升級（蓋房子） |
-| `destroy_building` | 選擇對方一塊有房子的地摧毀 |
-| `stay` | 原地停留 |
-| `composite` | 組合效果，搭配 `effects: [...]` 陣列 |
 
 ---
 
-## 遊戲規則
+## 重要技術細節
 
-### 版圖
+### IIFE 格式（解決 file:// 問題）
 
-- 共 40 格，順時針行進
-- **黃色格**（🤝 通力合作）：26 題，兩隊合作完成身體/創意挑戰
-- **紅色格**（🎭 挑戰情境）：25 題，演出生活中的衝突情境
-- **綠色格**（💚 心靈補給）：26 題，分享情緒、練習安慰
-- **黑色格**（機會 🧧 / 命運 🃏）：各 4 格，共 8 格，隨機抽特殊事件卡
+`vite.config.ts` 使用 `format: 'iife'`、`target: 'es2015'`，輸出為立即執行函式。CSS 由 Vite 自動注入到 JS 中（`document.createElement('style')`）。最終只有一個 `<script>` 標籤，無 `type="module"`，可在 `file://` 協議下正常執行。
 
-### 計分
+### 建置流程
 
-| 事件 | 分數 |
-|------|------|
-| 遊戲開始 | 每隊 1500 分 |
-| 完成格子任務 | +100 |
-| 經過（或踩到）起點 | +100 |
-| 踩到對方已佔領的空地 | −100 |
-| 踩到對方有 1 棟房子的地 | −200 |
-| 踩到對方有 2 棟房子的地 | −300 |
-
-### 土地與建築
-
-- 完成任務 → 佔領該格（顯示隊伍顏色小圓點）
-- 再次踩到自己已佔領的格子 → 可再次挑戰，成功後蓋一棟小房子（最多 2 棟）
-- 踩到自己格子但任務失敗 → 不蓋房子，格子保留佔領狀態
-
-### 機會/命運卡
-
-- 踩到黑格時自動抽取，直接套用效果（無需完成任務）
-- 題庫用完後重新洗牌循環
-
----
-
-## 技術架構
-
-### 技術棧
-
-- **React 19** + **TypeScript** + **Vite 8**
-- **Tailwind CSS 3.4** + **shadcn/ui**（40+ 元件）
-- **Web Audio API**（無外部音效檔，全部由 oscillator 合成）
-- **useReducer** 狀態機管理遊戲邏輯
-
-### 狀態機階段（GamePhase）
-
-```
-setup → rolling → moving → landed
-                              ↓
-                   card_display（黃/紅/綠/機會/命運）
-                              ↓
-                   effect_execution（特殊效果）
-                              ↓
-               ┌──────────────────────────────┐
-               │ choose_forward               │ 玩家選步數
-               │ roll_for_backward            │ 骰骰後退
-               │ select_building_upgrade      │ 選擇升級建築
-               │ select_building_destroy      │ 選擇摧毀建築
-               └──────────────────────────────┘
-                              ↓
-                          rolling（換下一隊）
-                              ↓
-                          game_over（結算）
-```
-
-### 音效系統
-
-`src/hooks/useSound.ts` 使用 Web Audio API 合成所有音效，無需載入任何外部音訊檔：
-
-| 函式 | 觸發時機 |
-|------|---------|
-| `playRoll()` | 擲骰子 |
-| `playStep()` | 棋子每步移動 |
-| `playLandYellow/Red/Green()` | 落點顯示卡片 |
-| `playChance/Destiny()` | 抽取特殊卡 |
-| `playSuccess/Fail()` | 任務完成/失敗 |
-| `playHouse()` | 蓋房子 |
-| `playNextTurn()` | 換回合 |
-| `playPassStart()` | 經過起點 |
-
----
-
-## 重新建置
-
-如果修改了 `src/` 下的原始碼後需要重新打包 `index.html`：
-
-### 環境需求
-
-- Node.js 18+
-- 可用 `npx pnpm` 安裝套件（不需要全域安裝 pnpm）
-
-### 步驟
+> **必須在 session scratchpad 建置**，因為 macOS 掛載的 workspace 資料夾在 `dist/` 清理時會出現 EPERM 錯誤。
 
 ```bash
-# 1. 安裝套件（首次或 package.json 有變動時）
-npx pnpm install
+# 1. 同步 workspace src → scratchpad src
+rsync -a --delete /sessions/<id>/mnt/友誼大富翁/src/ /sessions/<id>/youyi-game/src/
 
-# 2. 開發模式（熱更新，用瀏覽器開 http://localhost:5173）
-npx pnpm run dev
+# 2. 建置
+cd /sessions/<id>/youyi-game && npm run build
 
-# 3. 打包成單一 HTML（供直接開啟或伺服器部署）
-bash build.sh
-# 輸出：index_bundle.html
+# 3. 內聯 JS → 單一 index.html，複製到 workspace
+node -e "
+const fs = require('fs');
+const js = fs.readFileSync('./dist/assets/index.js', 'utf8');
+const html = \`<!doctype html><html lang=\"zh-TW\"><head>
+  <meta charset=\"UTF-8\"/>
+  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"/>
+  <title>友誼大富翁</title></head><body>
+  <div id=\"root\"></div><script>\${js}</script></body></html>\`;
+fs.writeFileSync('/sessions/<id>/mnt/友誼大富翁/index.html', html);
+"
 ```
 
-`build.sh` 的流程：Parcel 打包 → html-inline 內嵌所有 JS/CSS → 輸出單一 HTML。
+### composite 效果處理順序
 
-> **注意**：`build.sh` 輸出的 `index_bundle.html` 不包含 `cards.json` 的內容，
-> 需要搭配同目錄的 `cards.json`，並透過 HTTP 伺服器開啟才能載入外部題庫。
+`processEffect` 中 `composite` 類型的處理邏輯：
+
+1. **移動效果**（`move_forward`, `move_backward`, `move_to_start`）→ 延遲到最後執行，避免被後續 `score_change` 覆蓋 phase
+2. **互動效果**（`choose_forward`, `roll_to_move_back`, `upgrade_building`, `destroy_building`）→ 存入 `pendingEffects` 佇列，需要使用者互動後依序處理
+3. **即時效果**（`score_change`, `skip_turn`, `extra_turn`, `stay`）→ 依序立即執行
+
+### 暫停回合（skipTurnReturn）
+
+`GameState.skipTurnReturn: TeamId | null` 記錄「被暫停後應換回的隊」。
+`NEXT_TURN` 偵測到 `skipNextTurn` 時，切換到被跳過的隊並觸發其當前格子效果；
+`gameReducer` 外層 wrapper 在 phase 回到 `'rolling'` 且 `skipTurnReturn !== null` 時，自動切換回待機隊。
+
+### 分數轉移
+
+踩到對手領地時，扣除的分數**同步轉入**對手帳戶（`MOVE_COMPLETE` 及 `EFFECT_MOVE_COMPLETE` 兩處均已實作）：
+
+```ts
+const deducted = Math.min(teams[teamIdx].score, penalty);
+teams[teamIdx].score = Math.max(0, teams[teamIdx].score - penalty);
+teams[opponentIdx].score += deducted;
+```
+
+### extra_turn 修正
+
+`extra_turn` 效果執行時會清除 `diceValue`（設為 null），使 `showNextTurn` 條件不成立，骰子按鈕正確出現讓同隊再擲。
 
 ---
 
-## 已知事項
+## 音效系統（useSound.ts）
 
-1. **file:// 無法載入 cards.json**：直接雙擊開啟 HTML 時，`fetch('./cards.json')` 會被 Chrome/Edge 阻擋。遊戲會靜默回退到內建預設題庫（各 15 題），功能完整但不包含擴充題目。
+全部使用 Web Audio API 程式碼合成，無外部音效檔：
 
-2. **棋子動畫**：棋子移動時每格暫停 330ms，最多 6 格約需 2 秒，設計上讓學生可以清楚看到移動過程。
-
-3. **題庫 id 連續性**：新增 cards.json 的題目時，`id` 欄位建議從現有最大值 +1 開始，避免與洗牌邏輯中的 `drawFromDeck` 衝突。目前 drawFromDeck 使用題庫長度作為洗牌範圍，id 只用於查找，理論上不需連續，但保持連續較容易維護。
-
-4. **分數下限**：程式碼中 `Math.max(0, score + change)` 確保分數不會低於 0。
+| 函式 | 用途 |
+|------|------|
+| `playRoll` | 骰子滾動 |
+| `playDiceLand` | 骰子落定 |
+| `playStep` | 棋子移動每步 |
+| `playSuccess / playFail` | 任務成功 / 失敗 |
+| `playLandYellow/Red/Green` | 落在各色格子 |
+| `playChance / playDestiny` | 抽機會 / 命運卡 |
+| `playHouse / playDestroy` | 蓋房子 / 摧毀房子 |
+| `playPenalty` | 踩到對手領地 |
+| `playPassStart` | 經過起點 |
+| `playNextTurn` | 換隊 |
+| `playSkipTurn` | 暫停回合 |
+| `playGameOver` | 遊戲結束 |
 
 ---
 
-## 教案背景
+## 需要額外道具的卡片（通力合作類）
 
-本遊戲搭配「情感存摺」教案，透過三種任務類型讓國小 4–6 年級學生：
+**#2 友誼指揮官** `需要：眼罩或遮眼布`
+一人矇眼，其餘組員只能用「聲音指令」引導矇眼者繞過教室內的桌椅障礙物，走到指定位置。
 
-- **通力合作**（黃）：練習非語言溝通、身體協作、正向表達
-- **挑戰情境**（紅）：演練同儕、家庭、師生衝突的應對方式
-- **心靈補給**（綠）：分享生活中的情緒，練習給予安慰與同理
+**#3 默契畫筆** `需要：彩色筆 × 1、紙 × 1`
+兩人共同握住一支彩色筆，在不能說話的情況下，於紙上合作畫出一個「完整的圓形」或「一個愛心」。
 
-機會/命運卡設計模擬真實社交事件，強化隨機性與課堂討論素材。
+**#7 人體運輸機** `需要：長尺或長筆 × 1`
+小組成員僅用「指尖」支撐一根長尺或一枝筆，合力將其從桌子一端移到另一端，期間筆不能掉落。
+
+**#8 合力圈圈** `需要：呼拉圈 × 1（或繩子圍成圈）`
+組員手牽手圍成圈，在不鬆開手的情況下，讓一個呼拉圈繞過所有人的身體回到原點。
+
+**#11 友誼合奏團** `需要：課程自製簡易樂器`
+利用剛才製作的簡易樂器，小組排練出一段10秒鐘的自創節奏曲表演給關主看。（依賴課程前段的樂器製作活動）
+
+**#14 友誼藏寶圖** `需要：紙和筆`
+組員一起想出3個「我們這組共同的興趣」，寫在紙上。
+
+**#15 情感大合照** `需要：手機或相機`
+小組共同擺出一個代表「團結」或「健康友誼」的創意 Pose 給老師拍照。
+
+**#20 默契運球** `需要：小球或靠枕 × 1`
+兩人背對背夾住一顆小球（或靠枕），在不掉下來的情況下繞題目格走一圈。
+
+**#22 兩人三腳** `需要：繩子或布條（綁腳用）`
+把兩人內側腳綁起來（或相扣），在原地轉3圈不跌倒。
+
+**#26 合作拼圖** `需要：小積木一組`
+在1分鐘內，兩人用小積木共同拼出一個愛心或簡單圖形。

@@ -1,21 +1,52 @@
-import { Button } from '@/components/ui/button';
-import type { CellType, YellowQuestion, RedQuestion, GreenQuestion, SpecialCard } from '@/data/types';
+import type { CellType, YellowQuestion, RedQuestion, GreenQuestion, SpecialCard, CardEffect } from '@/data/types';
+
+function describeEffect(effect: CardEffect): string {
+  switch (effect.type) {
+    case 'score_change':
+      return effect.value > 0 ? `+${effect.value} 分` : `${effect.value} 分`;
+    case 'move_forward':
+      return `前進 ${effect.value} 步`;
+    case 'move_backward':
+      return `後退 ${effect.value} 步`;
+    case 'move_to_start':
+      return '回到起點';
+    case 'skip_turn':
+      return '暫停一回合';
+    case 'extra_turn':
+      return '再擲一次骰子';
+    case 'choose_forward':
+      return '選擇前進 1～6 步';
+    case 'roll_to_move_back':
+      return '擲骰決定後退步數';
+    case 'upgrade_building':
+      return '升級己方一棟建築';
+    case 'destroy_building':
+      return '摧毀對方一棟建築';
+    case 'stay':
+      return '原地停留';
+    case 'composite':
+      return effect.effects.map(describeEffect).join('、');
+    default:
+      return '';
+  }
+}
 
 interface CardModalProps {
   card: YellowQuestion | RedQuestion | GreenQuestion | SpecialCard;
   cardType: CellType;
   isOwnTerritory?: boolean;
+  dismissOnly?: boolean;
   onComplete: () => void;
   onFail: () => void;
 }
 
-export function CardModal({ card, cardType, isOwnTerritory, onComplete, onFail }: CardModalProps) {
+export function CardModal({ card, cardType, isOwnTerritory, dismissOnly, onComplete, onFail }: CardModalProps) {
   const isSpecial = cardType === 'chance' || cardType === 'destiny';
 
   const theme = {
     yellow: { bg: 'bg-yellow-50', border: 'border-yellow-400', title: 'text-yellow-700', accent: 'bg-yellow-100 border-yellow-300', btn: 'bg-yellow-500 hover:bg-yellow-600', label: '🤝 通力合作', headerBg: 'bg-yellow-400' },
-    red: { bg: 'bg-red-50', border: 'border-red-400', title: 'text-red-700', accent: 'bg-red-100 border-red-300', btn: 'bg-red-500 hover:bg-red-600', label: '🎭 挑戰情境', headerBg: 'bg-red-400' },
-    green: { bg: 'bg-green-50', border: 'border-green-400', title: 'text-green-700', accent: 'bg-green-100 border-green-300', btn: 'bg-green-500 hover:bg-green-600', label: '💚 心靈補給', headerBg: 'bg-green-400' },
+    red: { bg: 'bg-red-50', border: 'border-red-400', title: 'text-red-700', accent: 'bg-red-100 border-red-300', btn: 'bg-red-500 hover:bg-red-600', label: '🎭 情境表演', headerBg: 'bg-red-400' },
+    green: { bg: 'bg-green-50', border: 'border-green-400', title: 'text-green-700', accent: 'bg-green-100 border-green-300', btn: 'bg-green-500 hover:bg-green-600', label: '💚 心情分享', headerBg: 'bg-green-400' },
     chance: { bg: 'bg-blue-50', border: 'border-blue-400', title: 'text-blue-700', accent: 'bg-blue-100 border-blue-300', btn: 'bg-blue-500 hover:bg-blue-600', label: '🧧 機會', headerBg: 'bg-blue-500' },
     destiny: { bg: 'bg-purple-50', border: 'border-purple-400', title: 'text-purple-700', accent: 'bg-purple-100 border-purple-300', btn: 'bg-purple-500 hover:bg-purple-600', label: '🃏 命運', headerBg: 'bg-purple-500' },
     start: { bg: 'bg-gray-50', border: 'border-gray-400', title: 'text-gray-700', accent: 'bg-gray-100 border-gray-300', btn: 'bg-gray-500 hover:bg-gray-600', label: '起點', headerBg: 'bg-gray-400' },
@@ -92,9 +123,10 @@ export function CardModal({ card, cardType, isOwnTerritory, onComplete, onFail }
               <p className="text-gray-800 mb-5 leading-relaxed" style={{ fontSize: 'clamp(18px, 2.2vw, 32px)' }}>
                 {(card as SpecialCard).description}
               </p>
-              <div className={`${theme.accent} border-2 rounded-xl p-4`}>
-                <p className="font-bold" style={{ fontSize: 'clamp(14px, 1.7vw, 24px)', color: '#374151' }}>
-                  {(card as SpecialCard).quality === 'good' ? '✨ 好運效果，按確認套用' : (card as SpecialCard).quality === 'bad' ? '💔 不利效果，按確認套用' : '🔄 中立效果，按確認套用'}
+              <div className={`${theme.accent} border-2 rounded-xl p-4 mb-3`}>
+                <p className="font-bold" style={{ fontSize: 'clamp(15px, 1.8vw, 26px)', color: '#374151' }}>
+                  {(card as SpecialCard).quality === 'good' ? '✨' : (card as SpecialCard).quality === 'bad' ? '💔' : '🔄'}{' '}
+                  效果：{describeEffect((card as SpecialCard).effect)}
                 </p>
               </div>
             </>
@@ -102,7 +134,19 @@ export function CardModal({ card, cardType, isOwnTerritory, onComplete, onFail }
 
           {/* Action buttons */}
           <div className="flex gap-4 mt-7">
-            {!isSpecial ? (
+            {dismissOnly ? (
+              <button
+                onClick={onComplete}
+                className="w-full text-white font-black rounded-2xl transition-all active:scale-95 shadow-xl hover:brightness-110"
+                style={{
+                  background: 'linear-gradient(135deg, #6366F1, #EC4899)',
+                  fontSize: 'clamp(18px, 2.4vw, 36px)',
+                  padding: 'clamp(14px, 1.8vh, 24px)',
+                }}
+              >
+                收回卡片 ✦
+              </button>
+            ) : !isSpecial ? (
               <>
                 <button
                   onClick={onComplete}
