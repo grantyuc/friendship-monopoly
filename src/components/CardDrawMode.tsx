@@ -1,8 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSound } from '@/hooks/useSound';
 import { yellowQuestions, redQuestions, greenQuestions, chanceCards, destinyCards, shuffleArray } from '@/data/questions';
 import type { CellType, YellowQuestion, RedQuestion, GreenQuestion, SpecialCard } from '@/data/types';
 import { CardModal } from './CardModal';
+import { DiceFace } from '@/components/ui/DiceFace';
+
+const DICE_SIZE = 90;
 
 type DeckType = 'yellow' | 'red' | 'green' | 'chance' | 'destiny';
 
@@ -23,6 +26,42 @@ export function CardDrawMode({ onBack }: CardDrawModeProps) {
   const [drawnCard, setDrawnCard] = useState<YellowQuestion | RedQuestion | GreenQuestion | SpecialCard | null>(null);
   const [drawnType, setDrawnType] = useState<CellType | null>(null);
   const [flippingDeck, setFlippingDeck] = useState<DeckType | null>(null);
+
+  // Dice state
+  const [diceRolling, setDiceRolling] = useState(false);
+  const [diceDisplay, setDiceDisplay] = useState<number | null>(null);
+  const [diceAngle, setDiceAngle] = useState(0);
+  const rafRef = useRef<number | null>(null);
+
+  // Dice animation loop
+  useEffect(() => {
+    if (!diceRolling) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      setDiceAngle(0);
+      return;
+    }
+    let angle = 0;
+    const spin = () => {
+      angle += 25;
+      setDiceAngle(angle);
+      setDiceDisplay(Math.ceil(Math.random() * 6));
+      rafRef.current = requestAnimationFrame(spin);
+    };
+    rafRef.current = requestAnimationFrame(spin);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [diceRolling]);
+
+  const handleRollDice = useCallback(() => {
+    if (diceRolling) return;
+    const result = Math.ceil(Math.random() * 6);
+    setDiceRolling(true);
+    sound.playRoll();
+    setTimeout(() => {
+      setDiceRolling(false);
+      setDiceDisplay(result);
+    }, 900);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diceRolling]);
 
   const handleDraw = useCallback((deckType: DeckType) => {
     // Play sound based on deck type
@@ -153,10 +192,75 @@ export function CardDrawMode({ onBack }: CardDrawModeProps) {
         })}
       </div>
 
+      {/* Dice section */}
+      <div className="mt-8 flex flex-col items-center gap-4">
+        <div className="flex items-center gap-6">
+          {/* Dice display */}
+          <div
+            style={{
+              width: DICE_SIZE + 16,
+              height: DICE_SIZE + 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {diceDisplay !== null && (
+              <div
+                style={{
+                  transform: diceRolling
+                    ? `rotate(${diceAngle}deg) scale(${0.8 + Math.sin(diceAngle * 0.05) * 0.3})`
+                    : 'rotate(0deg) scale(1.15)',
+                  transition: diceRolling ? 'none' : 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+                  filter: diceRolling ? 'blur(1.5px)' : 'none',
+                }}
+              >
+                <DiceFace value={diceDisplay} size={DICE_SIZE} />
+              </div>
+            )}
+          </div>
+
+          {/* Roll button */}
+          <button
+            onClick={handleRollDice}
+            disabled={diceRolling}
+            className="flex flex-col items-center justify-center rounded-2xl font-black text-white shadow-lg active:scale-95 transition-all select-none"
+            style={{
+              width: 'clamp(90px, 12vw, 150px)',
+              height: 'clamp(60px, 8vw, 90px)',
+              fontSize: 'clamp(16px, 2.5vw, 28px)',
+              background: diceRolling
+                ? 'linear-gradient(135deg, #94a3b8, #64748b)'
+                : 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+              boxShadow: diceRolling
+                ? '0 4px 12px rgba(0,0,0,0.15)'
+                : '0 8px 24px rgba(99,102,241,0.5)',
+              cursor: diceRolling ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 'clamp(22px, 3.5vw, 40px)' }}>🎲</span>
+            擲骰子
+          </button>
+        </div>
+
+        {/* Result label */}
+        {diceDisplay !== null && !diceRolling && (
+          <p
+            className="font-black text-transparent bg-clip-text"
+            style={{
+              fontSize: 'clamp(16px, 2.5vw, 28px)',
+              backgroundImage: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+            }}
+          >
+            結果：{diceDisplay} 點
+          </p>
+        )}
+      </div>
+
       {/* Back button */}
       <button
         onClick={onBack}
-        className="mt-8 font-bold text-gray-500 hover:text-gray-700 transition-colors bg-white/70 rounded-xl px-6 py-3 shadow hover:shadow-md"
+        className="mt-6 font-bold text-gray-500 hover:text-gray-700 transition-colors bg-white/70 rounded-xl px-6 py-3 shadow hover:shadow-md"
         style={{ fontSize: 'clamp(14px, 2vw, 22px)' }}
       >
         ← 返回主選單
