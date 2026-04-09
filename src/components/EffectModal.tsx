@@ -26,7 +26,7 @@ export function EffectModal({
   // Spin animation matching GameBoard's normal dice
   const [diceAngle, setDiceAngle] = useState(0);
   useEffect(() => {
-    if (!backwardDiceRolling) { setDiceAngle(0); return; }
+    if (!backwardDiceRolling) return;
     let frame: number;
     let a = 0;
     const spin = () => {

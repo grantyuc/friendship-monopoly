@@ -189,7 +189,7 @@ export function GameBoard({ state, displayPositions, animatingCell, diceDisplay,
   // Dice animation angle
   const [diceAngle, setDiceAngle] = useState(0);
   useEffect(() => {
-    if (!diceRolling) { setDiceAngle(0); return; }
+    if (!diceRolling) return;
     let frame: number;
     let a = 0;
     const spin = () => {
