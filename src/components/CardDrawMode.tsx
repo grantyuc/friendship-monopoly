@@ -226,7 +226,7 @@ export function CardDrawMode({ onBack }: CardDrawModeProps) {
             disabled={diceRolling}
             className="flex flex-col items-center justify-center rounded-2xl font-black text-white shadow-lg active:scale-95 transition-all select-none"
             style={{
-              width: 'clamp(90px, 12vw, 150px)',
+              width: 'clamp(60px, 8vw, 90px)',
               height: 'clamp(60px, 8vw, 90px)',
               fontSize: 'clamp(16px, 2.5vw, 28px)',
               background: diceRolling
@@ -239,22 +239,8 @@ export function CardDrawMode({ onBack }: CardDrawModeProps) {
             }}
           >
             <span style={{ fontSize: 'clamp(22px, 3.5vw, 40px)' }}>🎲</span>
-            擲骰子
           </button>
         </div>
-
-        {/* Result label */}
-        {diceDisplay !== null && !diceRolling && (
-          <p
-            className="font-black text-transparent bg-clip-text"
-            style={{
-              fontSize: 'clamp(16px, 2.5vw, 28px)',
-              backgroundImage: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-            }}
-          >
-            結果：{diceDisplay} 點
-          </p>
-        )}
       </div>
 
       {/* Back button */}
